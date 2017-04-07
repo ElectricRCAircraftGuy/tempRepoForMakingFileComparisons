@@ -29,13 +29,13 @@ License along with TrinketHidCombo. If not, see
 #include <util/delay.h>
 
 // create an instance that the user can use
-Trinket_Hid_Combo TrinketHidCombo;
+// Trinket_Hid_Combo TrinketHidCombo;
 
-// empty constructor
+/* // empty constructor
 Trinket_Hid_Combo::Trinket_Hid_Combo()
 {
 	// nothing to do
-}
+} */
 
 // starts the USB driver, causes re-enumeration
 void Trinket_Hid_Combo::begin()
@@ -43,18 +43,17 @@ void Trinket_Hid_Combo::begin()
 	usbBegin();
 }
 
-// this must be called at least once every 10ms
+/* // this must be called at least once every 10ms
 void Trinket_Hid_Combo::poll()
 {
 	usbPollWrapper();
-}
+} */
 
 // makes a mouse movement
-void Trinket_Hid_Combo::mouseMove(signed char x, signed char y, uint8_t buttonMask)
-{
-	mouseMove(x, y, 0, buttonMask);
-}
-
+// void Trinket_Hid_Combo::mouseMove(signed char x, signed char y, uint8_t buttonMask)
+// {
+  // mouseMove(x, y, 0, buttonMask);
+// }
 void Trinket_Hid_Combo::mouseMove(signed char x, signed char y, signed char wheel, uint8_t buttonMask)
 {
 	signed char * signed_ptr = (signed char *)report_buffer; // this converts signed to unsigned
@@ -62,14 +61,14 @@ void Trinket_Hid_Combo::mouseMove(signed char x, signed char y, signed char whee
 	// format the report structure
 	signed_ptr[2] = x;
 	signed_ptr[3] = y;
-	signed_ptr[4] = wheel;
+  signed_ptr[4] = wheel;
 	report_buffer[1] = buttonMask;
 	report_buffer[0] = REPID_MOUSE;
 
 	usbReportSend(REPSIZE_MOUSE);
 }
 
-void Trinket_Hid_Combo::pressKey(uint8_t modifiers, uint8_t keycode1)
+/* void Trinket_Hid_Combo::pressKey(uint8_t modifiers, uint8_t keycode1)
 {
 	pressKey(modifiers, keycode1, 0, 0, 0, 0);
 }
@@ -102,9 +101,29 @@ void Trinket_Hid_Combo::pressKey(uint8_t modifiers, uint8_t keycode1, uint8_t ke
 	report_buffer[7] = keycode5;
 	report_buffer[0] = REPID_KEYBOARD;
 	usbReportSend(REPSIZE_KEYBOARD);
+} */
+
+//GS: minimal function to save flash 
+void Trinket_Hid_Combo::pressKey(uint8_t modifiers, uint8_t keycode1)
+{
+	report_buffer[0] = REPID_KEYBOARD;
+  report_buffer[1] = modifiers;
+  report_buffer[2] = 0;
+  report_buffer[3] = keycode1;
+  
+  //this:
+  for (uint8_t i=4; i<8; i++)
+    report_buffer[i] = 0;
+  //OR this (same flash usage as the for loop...so just use the for loop):
+  // report_buffer[4] = 0;
+	// report_buffer[5] = 0;
+	// report_buffer[6] = 0;
+	// report_buffer[7] = 0;
+  
+	usbReportSend(REPSIZE_KEYBOARD);
 }
 
-// presses a list of keys, do not exceed 5 keys
+/* // presses a list of keys, do not exceed 5 keys
 void Trinket_Hid_Combo::pressKeys(uint8_t modifiers, uint8_t* keycodes, uint8_t sz)
 {
 	report_buffer[0] = REPID_KEYBOARD;
@@ -116,7 +135,7 @@ void Trinket_Hid_Combo::pressKeys(uint8_t modifiers, uint8_t* keycodes, uint8_t 
 		report_buffer[3 + i] = keycodes[i];
 	}
 	usbReportSend(REPSIZE_KEYBOARD);
-}
+} */
 
 void Trinket_Hid_Combo::typeChar(uint8_t ascii)
 {
@@ -126,11 +145,11 @@ void Trinket_Hid_Combo::typeChar(uint8_t ascii)
 	pressKey(0, 0); // immediately release the key after
 }
 
-size_t Trinket_Hid_Combo::write(uint8_t ascii)
-{
-	typeChar(ascii);
-	return 1;
-}
+// size_t Trinket_Hid_Combo::write(uint8_t ascii)
+// {
+	// typeChar(ascii);
+	// return 1;
+// }
 
 void Trinket_Hid_Combo::pressMultimediaKey(uint8_t key)
 {
@@ -156,7 +175,173 @@ void Trinket_Hid_Combo::pressSystemCtrlKey(uint8_t key)
 	usbReportSend(REPSIZE_SYSCTRLKEY);
 }
 
+//GS: OPTIMIZING FUNCTION TO SAVE FLASH MEMORY *WITHOUT LOSING ANY FUNCTIONALITY*
 void ASCII_to_keycode(uint8_t ascii, uint8_t ledState, uint8_t* modifier, uint8_t* keycode)
+{
+	*keycode = 0x00;
+	*modifier = 0x00;
+	
+	// see scancode.doc appendix C
+	
+	if (ascii >= 'A' && ascii <= 'Z')
+	{
+		*keycode = 4 + ascii - 'A'; // set letter
+    if (!bit_is_set(ledState, 1)) // if caps is OFF
+		{
+			*modifier = _BV(1); // hold shift to make it upper case 
+		}
+	}
+	else if (ascii >= 'a' && ascii <= 'z')
+	{
+		*keycode = 4 + ascii - 'a'; // set letter
+    if (bit_is_set(ledState, 1)) // if caps is on
+		{
+			*modifier = _BV(1); // hold shift to make it lower case 
+		}
+	}
+	else if (ascii >= '0' && ascii <= '9')
+	{
+		// *modifier = 0x00; //GS: already set above 
+		if (ascii == '0')
+		{
+			*keycode = 0x27;
+		}
+		else
+		{
+			*keycode = 30 + ascii - '1'; 
+		}
+	}
+	else
+	{
+		switch (ascii) // convert ascii to keycode according to documentation
+		{
+			case '!':
+				// *modifier = _BV(1); // hold shift
+				*keycode = 29 + 1;
+				break;
+			case '@':
+				// *modifier = _BV(1); // hold shift
+				*keycode = 29 + 2;
+				break;
+			case '#':
+				// *modifier = _BV(1); // hold shift
+				*keycode = 29 + 3;
+				break;
+			case '$':
+				// *modifier = _BV(1); // hold shift
+				*keycode = 29 + 4;
+				break;
+			case '%':
+				// *modifier = _BV(1); // hold shift
+				*keycode = 29 + 5;
+				break;
+			case '^':
+				// *modifier = _BV(1); // hold shift
+				*keycode = 29 + 6;
+				break;
+			case '&':
+				// *modifier = _BV(1); // hold shift
+				*keycode = 29 + 7;
+				break;
+			case '*':
+				// *modifier = _BV(1); // hold shift
+				*keycode = 29 + 8;
+				break;
+			case '(':
+				// *modifier = _BV(1); // hold shift
+				*keycode = 29 + 9;
+				break;
+			case ')':
+				// *modifier = _BV(1); // hold shift
+				*keycode = 0x27;
+				break;
+			case '~':
+				// *modifier = _BV(1); // hold shift
+				// fall through
+			case '`':
+				*keycode = 0x35;
+				break;
+			case '_':
+				// *modifier = _BV(1); // hold shift
+				// fall through
+			case '-':
+				*keycode = 0x2D;
+				break;
+			case '+':
+				// *modifier = _BV(1); // hold shift
+				// fall through
+			case '=':
+				*keycode = 0x2E;
+				break;
+			case '{':
+				// *modifier = _BV(1); // hold shift
+				// fall through
+			case '[':
+				*keycode = 0x2F;
+				break;
+			case '}':
+				// *modifier = _BV(1); // hold shift
+				// fall through
+			case ']':
+				*keycode = 0x30;
+				break;
+			case '|':
+				// *modifier = _BV(1); // hold shift
+				// fall through
+			case '\\':
+				*keycode = 0x31;
+				break;
+			case ':':
+				// *modifier = _BV(1); // hold shift
+				// fall through
+			case ';':
+				*keycode = 0x33;
+				break;
+			case '"':
+				// *modifier = _BV(1); // hold shift
+				// fall through
+			case '\'':
+				*keycode = 0x34;
+				break;
+			case '<':
+				// *modifier = _BV(1); // hold shift
+				// fall through
+			case ',':
+				*keycode = 0x36;
+				break;
+			case '>':
+				// *modifier = _BV(1); // hold shift
+				// fall through
+			case '.':
+				*keycode = 0x37;
+				break;
+			case '?':
+				// *modifier = _BV(1); // hold shift
+				// fall through
+			case '/':
+				*keycode = 0x38;
+				break;
+			case ' ':
+				*keycode = 0x2C;
+				break;
+			case '\t':
+				*keycode = 0x2B;
+				break;
+			case '\n':
+				*keycode = 0x28;
+				break;
+		} //end of switch 
+    //Decide for which ranges of ascii char symbols you must hold shift 
+    if ((ascii>=33 && ascii<=38) || (ascii>=40 && ascii<=43) || (ascii>=62 && ascii<=64) ||
+        (ascii>=123 && ascii<=126) || ascii==58 || ascii==60 || ascii==94 || ascii==95)
+    {
+      *modifier = _BV(1); // hold shift
+    }
+	} //end of else 
+}
+
+//GS: ORIGINAL FUNCTION--BACKED UP SO I CAN NOW OPTIMIZE IT 
+/* void ASCII_to_keycode(uint8_t ascii, uint8_t ledState, uint8_t* modifier, uint8_t* keycode)
 {
 	*keycode = 0x00;
 	*modifier = 0x00;
@@ -320,15 +505,15 @@ void ASCII_to_keycode(uint8_t ascii, uint8_t ledState, uint8_t* modifier, uint8_
 				break;
 		}
 	}
-}
+} */
 
 uint8_t Trinket_Hid_Combo::getLEDstate()
 {
 	return led_state;
 }
 
-// checks if USB is connected, 0 if not connected
+/* // checks if USB is connected, 0 if not connected
 char Trinket_Hid_Combo::isConnected()
 {
 	return usb_hasCommed;
-}
+} */

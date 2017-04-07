@@ -79,7 +79,8 @@ void usbReportSend(uint8_t sz)
 // see HID1_11.pdf appendix B section 1
 // USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH is defined in usbconfig (should be 175)
 const PROGMEM char usbHidReportDescriptor[USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH] = {
-	0x05, 0x01,           // USAGE_PAGE (Generic Desktop)
+	//GS: length 54
+  0x05, 0x01,           // USAGE_PAGE (Generic Desktop)
 	0x09, 0x02,           // USAGE (Mouse)
 	0xa1, 0x01,           // COLLECTION (Application)
 	0x09, 0x01,           //   USAGE (Pointer)
@@ -99,7 +100,7 @@ const PROGMEM char usbHidReportDescriptor[USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH] 
 	0x05, 0x01,           //     USAGE_PAGE (Generic Desktop)
 	0x09, 0x30,           //     USAGE (X)
 	0x09, 0x31,           //     USAGE (Y)
-	0x09, 0x38,           //     USAGE (Wheel)
+  0x09, 0x38,           //     USAGE (Wheel)
 	0x15, 0x81,           //     LOGICAL_MINIMUM (-127)
 	0x25, 0x7F,           //     LOGICAL_MAXIMUM (127)
 	0x75, 0x08,           //     REPORT_SIZE (8)
@@ -108,6 +109,7 @@ const PROGMEM char usbHidReportDescriptor[USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH] 
 	0xC0,                 //   END_COLLECTION
 	0xC0,                 // END COLLECTION
 
+  //GS 67
 	0x05, 0x01,           // USAGE_PAGE (Generic Desktop)
 	0x09, 0x06,           // USAGE (Keyboard)
 	0xA1, 0x01,           // COLLECTION (Application)
@@ -142,6 +144,7 @@ const PROGMEM char usbHidReportDescriptor[USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH] 
 	0x81, 0x00,           //   INPUT (Data,Ary,Abs)
 	0xC0,                 // END_COLLECTION
 
+  //25
 	// this second multimedia key report is what handles the multimedia keys
 	0x05, 0x0C,           // USAGE_PAGE (Consumer Devices)
 	0x09, 0x01,           // USAGE (Consumer Control)
@@ -156,6 +159,7 @@ const PROGMEM char usbHidReportDescriptor[USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH] 
 	0x81, 0x00,           //   INPUT (Data,Ary,Abs)
 	0xC0,                 // END_COLLECTION
 
+  //29
 	// system controls, like power, needs a 3rd different report and report descriptor
 	0x05, 0x01,             // USAGE_PAGE (Generic Desktop)
 	0x09, 0x80,             // USAGE (System Control)
@@ -212,9 +216,10 @@ usbMsgLen_t usbFunctionSetup(uint8_t data[8])
 			if (rq->wValue.bytes[0] == REPID_SYSCTRLKEY) return REPSIZE_SYSCTRLKEY;
 			return 8; // default
 		case USBRQ_HID_SET_REPORT:
-			if (rq->wLength.word == 1) // check data is available
+			if (rq->wLength.word == 2) // check data is available
 			{
-				// 1 byte, we don't check report type (it can only be output or feature)
+				// 1st is the report byte, data is the 2nd byte.
+				// We don't check report type (it can only be output or feature)
 				// we never implemented "feature" reports so it can't be feature
 				// so assume "output" reports
 				// this means set LED status
@@ -233,8 +238,9 @@ usbMsgLen_t usbFunctionSetup(uint8_t data[8])
 // see http://vusb.wikidot.com/driver-api
 usbMsgLen_t usbFunctionWrite(uint8_t * data, uchar len)
 {
-	led_state = data[0];
-	return 1; // 1 byte read
+	//We take the 2nd byte, which is the data byte
+	led_state = data[1];
+	return 1; // 1 byte read //GS: should return 1 once we have all the data, NOT because 1 byte is read; see here: http://vusb.wikidot.com/driver-api 
 }
 
 #if defined(__AVR_ATtiny85__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny25__)
